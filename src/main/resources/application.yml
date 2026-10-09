@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: yu-ai-agent
+  profiles:
+    active: local
+  ai:
+    # ============================================================
+    # 【2026 必改项】SAA 1.1.x 起，DashScope 的自动配置类带了
+    # @ConditionalOnProperty(name="spring.ai.model.chat", havingValue="dashscope")
+    # 不写这两行，DashScopeChatModel / DashScopeEmbeddingModel 的 Bean 根本不会创建，
+    # 项目启动直接报 "No qualifying bean of type ChatModel"。
+    # ============================================================
+    model:
+      chat: dashscope
+      embedding: dashscope
+    # 阿里云百炼（灵积）DashScope
+    dashscope:
+      # 强烈建议用环境变量注入：export AI_DASHSCOPE_API_KEY=sk-xxxx
+      api-key: ${AI_DASHSCOPE_API_KEY:your-api-key}
+      chat:
+        options:
+          model: qwen-plus
+    # 本地大模型（可选；不配 spring.ai.model.chat=ollama 时不会创建 Ollama 的 ChatModel）
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: gemma3:1b
+# 临时注释掉，便于大家开发调试和部署（实际填写 PgVector 数据库信息）
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/yu_ai_agent
+#    username: postgres
+#    password: 123456
+#  ai:
+#    vectorstore:
+#      pgvector:
+#        index-type: HNSW
+#        dimensions: 1536
+#        distance-type: COSINE_DISTANCE
+#        max-document-batch-size: 10000
+#    mcp:
+#      client:
+#        sse:
+#          connections:
+#            server1:
+#              url: http://localhost:8127
+#        stdio:
+#          servers-configuration: classpath:mcp-servers.json
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+# springdoc-openapi 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.yupi.yuaiagent.controller
+# knife4j 配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+# searchAPI（联网搜索工具），建议用环境变量注入
+search-api:
+  api-key: ${SEARCH_API_KEY:你的 API Key}
+# 修改日志级别，查看 Spring AI 更多调用细节
+logging:
+  level:
+    org.springframework.ai: DEBUG

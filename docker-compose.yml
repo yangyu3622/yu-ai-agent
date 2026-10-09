@@ -1,0 +1,50 @@
+services:
+  # ===== 后端：AI 超级智能体 =====
+  yu-ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yu-ai-agent:2026
+    container_name: yu-ai-agent
+    restart: unless-stopped
+    ports:
+      # 只监听回环地址，外部一律走 nginx，避免直接暴露 8123
+      - "127.0.0.1:8123:8123"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # 从 .env 文件读取，切勿写死在这里
+      AI_DASHSCOPE_API_KEY: ${AI_DASHSCOPE_API_KEY}
+      SEARCH_API_KEY: ${SEARCH_API_KEY}
+    volumes:
+      # 智能体写出的文件 / PDF 需要持久化
+      - ./runtime/tmp:/app/tmp
+      - ./runtime/logs:/root/yu-ai-agent/logs
+    # 轻量服务器内存紧张，限制容器上限，防止 OOM 拖垮整台机器
+    mem_limit: 1200m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    networks:
+      - yu-ai-net
+
+  # ===== 前端：Vue3 构建产物 + nginx 反代 =====
+  yu-ai-agent-frontend:
+    build:
+      context: ./yu-ai-agent-frontend
+      dockerfile: Dockerfile
+    image: yu-ai-agent-frontend:2026
+    container_name: yu-ai-agent-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - yu-ai-agent
+    networks:
+      - yu-ai-net
+
+networks:
+  yu-ai-net:
+    driver: bridge

@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: yu-image-search-mcp-server
+  profiles:
+    active: sse
+server:
+  port: 8127
+
+# Pexels 图片搜索 Key（从环境变量注入，不要写死）
+pexels:
+  api-key: ${PEXELS_API_KEY:}

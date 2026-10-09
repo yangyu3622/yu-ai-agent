@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend:
+    name: 后端构建（JDK 21）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Maven 编译打包
+        # 用占位 Key，保证在没有真实 Key 的情况下也能完成编译校验
+        env:
+          AI_DASHSCOPE_API_KEY: dummy-key-for-ci
+          SEARCH_API_KEY: dummy-key-for-ci
+        run: mvn -B clean package -DskipTests
+
+      - name: 上传 jar 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: yu-ai-agent-jar
+          path: target/yu-ai-agent.jar
+          retention-days: 7
+
+  mcp-server:
+    name: MCP 图片搜索服务构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Maven 编译打包
+        run: mvn -B -f yu-image-search-mcp-server/pom.xml clean package -DskipTests
+
+  frontend:
+    name: 前端构建（Node 20）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yu-ai-agent-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: yu-ai-agent-frontend/package-lock.json
+
+      # package-lock.json 在老版本 vite 下可能不完整，用 install 而非 ci
+      - name: 安装依赖
+        run: npm install
+
+      - name: 构建
+        run: npm run build
+
+      - name: 上传 dist 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: yu-ai-agent-frontend/dist
+          retention-days: 7
