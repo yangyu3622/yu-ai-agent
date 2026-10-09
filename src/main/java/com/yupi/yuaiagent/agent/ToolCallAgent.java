@@ -88,7 +88,7 @@ public class ToolCallAgent extends ReActAgent {
         try {
             ChatResponse chatResponse = getChatClient().prompt(prompt)
                     .system(getSystemPrompt())
-                    .tools(availableTools)
+                    .toolCallbacks(availableTools)
                     .call()
                     .chatResponse();
             // 记录响应，用于等下 Act
@@ -108,6 +108,8 @@ public class ToolCallAgent extends ReActAgent {
             log.info(toolCallInfo);
             // 如果不需要调用工具，返回 false
             if (toolCallList.isEmpty()) {
+                // 记录本轮模型输出，作为最终答案回传给前端
+                this.lastThinkText = result;
                 // 只有不调用工具时，才需要手动记录助手消息
                 getMessageList().add(assistantMessage);
                 return false;
@@ -118,6 +120,9 @@ public class ToolCallAgent extends ReActAgent {
         } catch (Exception e) {
             log.error(getName() + "的思考过程遇到了问题：" + e.getMessage());
             getMessageList().add(new AssistantMessage("处理时遇到了错误：" + e.getMessage()));
+            // 修复：把错误原因也回传给前端，避免前端只看到误导性的"思考完成"
+            this.lastThinkText = e.getMessage();
+            getMessageList().add(new AssistantMessage(e.getMessage()));
             return false;
         }
     }

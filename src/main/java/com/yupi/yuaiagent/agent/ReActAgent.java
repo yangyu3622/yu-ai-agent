@@ -1,5 +1,6 @@
 package com.yupi.yuaiagent.agent;
 
+import com.yupi.yuaiagent.agent.model.AgentState;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -14,39 +15,32 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class ReActAgent extends BaseAgent {
 
     /**
-     * 处理当前状态并决定下一步行动
-     *
-     * @return 是否需要执行行动，true表示需要执行，false表示不需要执行
+     * 最近一次思考的输出文本。
+     * 当 think() 判定"无需再调用工具"时，这段文本就是给用户的最终答复。
      */
+    protected String lastThinkText = "";
+
     public abstract boolean think();
 
-    /**
-     * 执行决定的行动
-     *
-     * @return 行动执行结果
-     */
     public abstract String act();
 
-    /**
-     * 执行单个步骤：思考和行动
-     *
-     * @return 步骤执行结果
-     */
     @Override
     public String step() {
         try {
-            // 先思考
             boolean shouldAct = think();
             if (!shouldAct) {
+                // 无需调用工具即代表任务结束，必须置为 FINISHED，
+                // 否则循环会空转到 maxSteps
+                setState(AgentState.FINISHED);
+                if (lastThinkText != null && !lastThinkText.isEmpty()) {
+                    return lastThinkText;
+                }
                 return "思考完成 - 无需行动";
             }
-            // 再行动
             return act();
         } catch (Exception e) {
-            // 记录异常日志
-            e.printStackTrace();
+            log.error("步骤执行失败", e);
             return "步骤执行失败：" + e.getMessage();
         }
     }
-
 }
