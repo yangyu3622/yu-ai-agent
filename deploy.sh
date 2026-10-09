@@ -8,8 +8,8 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/root/yu-ai-agent}"
-REPO_URL="${REPO_URL:-https://github.com/你的用户名/yu-ai-agent.git}"
-BRANCH="${BRANCH:-main}"
+REPO_URL="${REPO_URL:-https://github.com/yangyu3622/yu-ai-agent.git}"
+BRANCH="${BRANCH:-master}"
 COMPOSE="docker compose"
 
 log()  { echo -e "\033[32m[INFO]\033[0m $*"; }
