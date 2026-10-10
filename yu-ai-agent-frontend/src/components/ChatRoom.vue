@@ -12,7 +12,12 @@
           </div>
           <div class="message-bubble">
             <div class="message-content">
-              {{ msg.content }}
+              <div v-if="msg.type === 'ai-pdf'" class="pdf-card">
+                <div class="pdf-title">📄 {{ msg.content.replace('__PDF__', '') }}</div>
+                <a :href="`/api/files/preview?fileName=${encodeURIComponent(msg.content.replace('__PDF__',''))}`" target="_blank" class="pdf-btn">预览</a>
+                <a :href="`/api/files/download?fileName=${encodeURIComponent(msg.content.replace('__PDF__',''))}`" class="pdf-btn primary">下载</a>
+              </div>
+              <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
               <span v-if="connectionStatus === 'connecting' && index === messages.length - 1" class="typing-indicator">▋</span>
             </div>
             <div class="message-time">{{ formatTime(msg.time) }}</div>
@@ -55,6 +60,15 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick, watch, computed } from 'vue'
 import AiAvatarFallback from './AiAvatarFallback.vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
+marked.setOptions({ breaks: true, gfm: true })
+
+const renderMarkdown = (text) => {
+  if (!text) return ''
+  return DOMPurify.sanitize(marked.parse(text))
+}
 
 const props = defineProps({
   messages: {
@@ -389,4 +403,29 @@ onMounted(() => {
 .ai-message + .ai-message .message-bubble {
   border-top-left-radius: 10px;
 }
+
+.ai-step .message-bubble {
+  background-color: #f0f4ff;
+  font-size: 13px;
+  color: #666;
+  max-height: 60px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.ai-step .message-bubble:hover {
+  max-height: none;
+}
+.markdown-body p { margin: 0 0 8px; }
+.markdown-body pre {
+  background: #282c34; color: #abb2bf;
+  padding: 10px; border-radius: 6px; overflow-x: auto;
+}
+.markdown-body code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
+
+.pdf-card { padding: 12px; background: #fff; border: 1px solid #dde; border-radius: 8px; }
+.pdf-btn { display: inline-block; margin: 8px 8px 0 0; padding: 6px 14px; border-radius: 6px; background: #f0f2ff; color: #3f51b5; text-decoration: none; }
+.pdf-btn.primary { background: #3f51b5; color: #fff; }
+.markdown-body p { margin: 0 0 8px; }
+.markdown-body pre { background: #282c34; color: #abb2bf; padding: 10px; border-radius: 6px; overflow-x: auto; }
+.markdown-body code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
 </style> 

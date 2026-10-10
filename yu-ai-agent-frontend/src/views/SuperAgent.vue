@@ -8,6 +8,14 @@
     
     <div class="content-wrapper">
       <div class="chat-area">
+        <div v-if="stepsLog.length" class="steps-panel">
+          <div class="steps-toggle" @click="showSteps = !showSteps">
+            {{ showSteps ? '收起' : '展开' }}思考过程（{{ stepsLog.length }} 步）
+          </div>
+          <div v-show="showSteps" class="steps-body">
+            <div v-for="(s, i) in stepsLog" :key="i" class="step-item">{{ s }}</div>
+          </div>
+        </div>
         <ChatRoom 
           :messages="messages" 
           :connection-status="connectionStatus"
@@ -31,17 +39,16 @@ import ChatRoom from '../components/ChatRoom.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { chatWithManus } from '../api'
 
-// 设置页面标题和元数据
 useHead({
-  title: 'AI超级智能体 - 鱼皮AI超级智能体应用平台',
+  title: 'AI超级智能体 - 瑾瑜AI超级智能体应用平台',
   meta: [
     {
       name: 'description',
-      content: 'AI超级智能体是鱼皮AI超级智能体应用平台的全能助手，能解答各类专业问题，提供精准建议和解决方案'
+      content: 'AI超级智能体是瑾瑜AI超级智能体应用平台的全能助手，能解答各类问题，提供专业建议和解决方案'
     },
     {
       name: 'keywords',
-      content: 'AI超级智能体,智能助手,专业问答,AI问答,专业建议,鱼皮,AI智能体'
+      content: 'AI超级智能体,智能助手,专业问答,AI问答,专业建议,瑾瑜,AI智能体'
     }
   ]
 })
@@ -49,9 +56,10 @@ useHead({
 const router = useRouter()
 const messages = ref([])
 const connectionStatus = ref('disconnected')
+const stepsLog = ref([])
+const showSteps = ref(false)
 let eventSource = null
 
-// 添加消息到列表
 const addMessage = (content, isUser, type = '') => {
   messages.value.push({
     content,
@@ -61,113 +69,99 @@ const addMessage = (content, isUser, type = '') => {
   })
 }
 
-// 发送消息
 const sendMessage = (message) => {
   addMessage(message, true, 'user-question')
-  
-  // 连接SSE
   if (eventSource) {
     eventSource.close()
   }
-  
-  // 设置连接状态
   connectionStatus.value = 'connecting'
-  
-  // 临时存储
-  let messageBuffer = []; // 用于存储SSE消息的缓冲区
-  let lastBubbleTime = Date.now(); // 上一个气泡的创建时间
-  let isFirstResponse = true; // 是否是第一次响应
-  
-  const chineseEndPunctuation = ['。', '！', '？', '…']; // 中文句子结束标点
-  const minBubbleInterval = 800; // 气泡最小间隔时间(毫秒)
-  
-  // 创建消息气泡的函数
+  stepsLog.value = []
+
+  let messageBuffer = [];
+  let lastBubbleTime = Date.now();
+  let isFirstResponse = true;
+  let finished = false;
+
+  const chineseEndPunctuation = ['。', '！', '？', '…'];
+  const minBubbleInterval = 800;
+
   const createBubble = (content, type = 'ai-answer') => {
     if (!content.trim()) return;
-    
-    // 添加适当的延迟，使消息显示更自然
     const now = Date.now();
     const timeSinceLastBubble = now - lastBubbleTime;
-    
     if (isFirstResponse) {
-      // 第一条消息立即显示
       addMessage(content, false, type);
       isFirstResponse = false;
     } else if (timeSinceLastBubble < minBubbleInterval) {
-      // 如果与上一气泡间隔太短，添加一个延迟
       setTimeout(() => {
         addMessage(content, false, type);
       }, minBubbleInterval - timeSinceLastBubble);
     } else {
-      // 正常添加消息
       addMessage(content, false, type);
     }
-    
     lastBubbleTime = now;
-    messageBuffer = []; // 清空缓冲区
+    messageBuffer = [];
   };
-  
+
+  const finishUp = () => {
+    if (messageBuffer.length > 0) {
+      createBubble(messageBuffer.join(''), 'ai-final');
+    }
+    const pdfMatch = stepsLog.value.join('\n').match(/([^\/\\]+\.pdf)/);
+    if (pdfMatch) {
+      addMessage('__PDF__' + pdfMatch[1], false, 'ai-pdf');
+    }
+    connectionStatus.value = 'disconnected';
+  };
+
   eventSource = chatWithManus(message)
-  
-  // 监听SSE消息
+
   eventSource.onmessage = (event) => {
     const data = event.data
-    
-    if (data && data !== '[DONE]') {
+    if (data === '[DONE]') {
+      finished = true
+      finishUp()
+      eventSource.close()
+      eventSource = null
+      return
+    }
+    if (/^Step\s*\d+[:：]\s*(工具|思考完成|执行结束|Terminated)/.test(data)) {
+      stepsLog.value.push(data)
+      return
+    }
+    if (data) {
       messageBuffer.push(data);
-      
-      // 检查是否应该创建新气泡
       const combinedText = messageBuffer.join('');
-      
-      // 句子结束或消息长度达到阈值
       const lastChar = data.charAt(data.length - 1);
       const hasCompleteSentence = chineseEndPunctuation.includes(lastChar) || data.includes('\n\n');
       const isLongEnough = combinedText.length > 40;
-      
       if (hasCompleteSentence || isLongEnough) {
         createBubble(combinedText);
       }
     }
-    
-    if (data === '[DONE]') {
-      // 如果还有未显示的内容，创建最后一个气泡
-      if (messageBuffer.length > 0) {
-        const remainingContent = messageBuffer.join('');
-        createBubble(remainingContent, 'ai-final');
-      }
-      
-      // 完成后关闭连接
-      connectionStatus.value = 'disconnected'
-      eventSource.close()
-    }
   }
-  
-  // 监听SSE错误
+
   eventSource.onerror = (error) => {
+    if (finished) return
     console.error('SSE Error:', error)
     connectionStatus.value = 'error'
-    eventSource.close()
-    
-    // 如果出错时有未显示的内容，也创建气泡
+    const es = eventSource
+    eventSource = null
+    es.close()
     if (messageBuffer.length > 0) {
-      const remainingContent = messageBuffer.join('');
-      createBubble(remainingContent, 'ai-error');
+      createBubble(messageBuffer.join(''), 'ai-error');
     }
   }
 }
 
-// 返回主页
 const goBack = () => {
   router.push('/')
 }
 
-// 页面加载时添加欢迎消息
 onMounted(() => {
-  // 添加欢迎消息
   addMessage('你好，我是AI超级智能体。我可以解答各类问题，提供专业建议，请问有什么可以帮助你的吗？', false)
 })
 
-// 组件销毁前关闭SSE连接
 onBeforeUnmount(() => {
   if (eventSource) {
     eventSource.close()
@@ -243,6 +237,18 @@ onBeforeUnmount(() => {
   margin-bottom: 16px; /* 为页脚留出空间 */
 }
 
+.steps-panel { margin: 0 0 8px 0; font-size: 13px; }
+.steps-toggle { color: #3f51b5; cursor: pointer; user-select: none; display: inline-block; }
+.steps-body {
+  margin-top: 6px;
+  padding: 8px;
+  background: #f5f7ff;
+  border-radius: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.step-item { color: #777; margin-bottom: 4px; word-break: break-all; }
+
 .footer-container {
   margin-top: auto;
 }
@@ -283,4 +289,9 @@ onBeforeUnmount(() => {
     margin-bottom: 8px;
   }
 }
+
+.steps-panel { margin: 8px 16px; font-size: 13px; }
+.steps-toggle { color: #3f51b5; cursor: pointer; user-select: none; }
+.steps-body { margin-top: 6px; padding: 8px; background: #f5f7ff; border-radius: 6px; max-height: 220px; overflow-y: auto; }
+.step-item { color: #777; margin-bottom: 4px; word-break: break-all; }
 </style> 

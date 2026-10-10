@@ -18,7 +18,7 @@ import java.io.IOException;
  */
 public class PDFGenerationTool {
 
-    @Tool(description = "Generate a PDF file with given content", returnDirect = false)
+    @Tool(description = "Generate a PDF file with given content. ONLY use this tool when the user EXPLICITLY asks to generate, export or download a PDF file. Never use it for normal questions or conversations.", returnDirect = false)
     public String generatePDF(
             @ToolParam(description = "Name of the file to save the generated PDF") String fileName,
             @ToolParam(description = "Content to be included in the PDF") String content) {

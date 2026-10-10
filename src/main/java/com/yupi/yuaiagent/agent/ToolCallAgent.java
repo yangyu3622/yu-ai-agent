@@ -19,6 +19,7 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -146,14 +147,44 @@ public class ToolCallAgent extends ReActAgent {
         // 判断是否调用了终止工具
         boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
                 .anyMatch(response -> response.name().equals("doTerminate"));
-        if (terminateToolCalled) {
-            // 任务结束，更改状态
-            setState(AgentState.FINISHED);
-        }
         String results = toolResponseMessage.getResponses().stream()
                 .map(response -> "工具 " + response.name() + " 返回的结果：" + response.responseData())
                 .collect(Collectors.joining("\n"));
         log.info(results);
+        if (terminateToolCalled) {
+            // 任务结束，更改状态
+            setState(AgentState.FINISHED);
+            // 修复：原实现直接把"任务结束"当最终输出，用户看不到任何答案
+            return generateFinalSummary(results);
+        }
         return results;
+    }
+
+    /**
+     * 任务结束时，基于完整对话上下文生成面向用户的最终总结。
+     */
+    private String generateFinalSummary(String fallback) {
+        try {
+            List<Message> messages = new ArrayList<>(getMessageList());
+            messages.add(new UserMessage("""
+                    请基于以上全部信息，直接给出面向用户的最终回答。
+                    要求：
+                    1. 使用中文，结构化输出（可用标题、列表、加粗）。
+                    2. 不要再调用任何工具。
+                    3. 只输出回答正文，不要出现"任务结束"、"工具 xxx 返回的结果"、JSON 数据、文件路径等中间过程信息。
+                    4. 内容要具体、可直接采用。
+                    """));
+            // 关键：不传 tools，避免再次触发工具调用
+            ChatResponse resp = getChatClient().prompt(new Prompt(messages)).call().chatResponse();
+            if (resp != null && resp.getResult() != null && resp.getResult().getOutput() != null) {
+                String text = resp.getResult().getOutput().getText();
+                if (StrUtil.isNotBlank(text)) {
+                    return text;
+                }
+            }
+        } catch (Exception e) {
+            log.error("生成最终总结失败", e);
+        }
+        return StrUtil.isNotBlank(fallback) ? fallback : "任务已完成";
     }
 }

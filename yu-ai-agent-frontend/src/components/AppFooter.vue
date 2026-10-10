@@ -3,7 +3,7 @@
     <div class="footer-content">
       <div class="footer-section">
         <div class="footer-logo">
-          <h3>鱼皮AI超级智能体应用平台</h3>
+          <h3>瑾瑜AI超级智能体应用平台</h3>
         </div>
         <div class="footer-links">
           <a href="#">《用户协议》</a>
@@ -14,9 +14,9 @@
       <div class="footer-section">
         <h4>友情链接</h4>
         <div class="footer-links">
-          <a href="https://www.mianshiya.com" target="_blank">面试鸭</a>
-          <a href="#" target="_blank">编程导航</a>
-          <a href="#" target="_blank">代码小抄</a>
+          <a href="https://tongyi.aliyun.com/" target="_blank">通义千问</a>
+          <a href="https://wenxin.baidu.com/?enter_type=yiyan_site" target="_blank">文心一言</a>
+          <a href="https://yuanbao.tencent.com/evt/dl?tridChannel=baidu.guanggaopinzhuan.x&pkgChId=9003" target="_blank">腾讯元宝</a>
         </div>
       </div>
       
@@ -24,13 +24,13 @@
         <h4>联系我们</h4>
         <div class="footer-links">
           <a href="#">商务合作</a>
-          <a href="#">站长：鱼皮</a>
+          <a href="#">站长：洋芋</a>
         </div>
       </div>
     </div>
     
     <div class="footer-bottom">
-      <p>© {{ currentYear }} 鱼皮AI超级智能体应用平台 - 让AI为你服务</p>
+      <p>© {{ currentYear }} 瑾瑜AI超级智能体应用平台 - 让AI为你服务</p>
     </div>
   </footer>
 </template>

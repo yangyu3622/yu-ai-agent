@@ -91,6 +91,14 @@ public abstract class BaseAgent {
         }
     }
 
+    private void safeSend(SseEmitter emitter, String data) {
+        try {
+            emitter.send(data);
+        } catch (Exception e) {
+            log.warn("推送SSE消息失败（可能客户端已断开）：{}", e.getMessage());
+        }
+    }
+
     /**
      * 运行代理（流式输出）
      *
@@ -131,7 +139,8 @@ public abstract class BaseAgent {
                     log.info("Executing step {}/{}", stepNumber, maxSteps);
                     // 单步执行
                     String stepResult = step();
-                    String result = "Step " + stepNumber + ": " + stepResult;
+                    // 修复：最终答案不加 "Step N:" 前缀，否则会被前端的过滤器当成中间步骤折叠掉，用户看不到答案
+                    String result = (this.state == AgentState.FINISHED) ? stepResult : "Step " + stepNumber + ": " + stepResult;
                     results.add(result);
                     // 输出当前每一步的结果到 SSE
                     sseEmitter.send(result);
@@ -142,7 +151,7 @@ public abstract class BaseAgent {
                     results.add("Terminated: Reached max steps (" + maxSteps + ")");
                     sseEmitter.send("执行结束：达到最大步骤（" + maxSteps + "）");
                 }
-                // 正常完成
+                safeSend(sseEmitter, "[DONE]");
                 sseEmitter.complete();
             } catch (Exception e) {
                 state = AgentState.ERROR;
@@ -150,7 +159,7 @@ public abstract class BaseAgent {
                 try {
                     sseEmitter.send("执行错误：" + e.getMessage());
                     sseEmitter.complete();
-                } catch (IOException ex) {
+                } catch (Exception ex) {
                     sseEmitter.completeWithError(ex);
                 }
             } finally {
